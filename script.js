@@ -450,8 +450,8 @@
         foody = this.height / 2;
         foodyr = this.height / 2;
       } else {
-        foodx = 200;
-        foodxr = 100;
+        foodx = 400;
+        foodxr = 300;
         foody = 200;
         foodyr = 30;
       }
@@ -554,7 +554,7 @@
       for (_k = 0, _len3 = _ref4.length; _k < _len3; _k++) {
         ant = _ref4[_k];
         ant.reset();
-        ant.teleport(rand(this.width / 2, 100), rand(this.height / 3, 200));
+        ant.teleport(rand(this.width / 2, 100), rand(this.height / 4, 20));
       }
       return null;
     };

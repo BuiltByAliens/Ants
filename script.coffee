@@ -345,8 +345,8 @@ class Sim
       foody = @height/2
       foodyr = @height/2
     else
-      foodx = 200
-      foodxr = 100
+      foodx = 400
+      foodxr = 300
       foody = 200 
       foodyr = 30
     
@@ -423,7 +423,7 @@ class Sim
     # reset the ants and place them randomly
     for ant in @ants
       ant.reset()
-      ant.teleport( rand(@width/2, 100), rand(@height/3, 200) )
+      ant.teleport( rand(@width/2, 100), rand(@height/4, 20) )
     
     return null
     
