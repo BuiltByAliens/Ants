@@ -450,10 +450,10 @@
         foody = this.height / 2;
         foodyr = this.height / 2;
       } else {
-        foodx = 400;
-        foodxr = 300;
+        foodx = 200;
+        foodxr = 200;
         foody = 200;
-        foodyr = 30;
+        foodyr = 200;
       }
       this.ants = (function() {
         var _results;
