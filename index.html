@@ -23,6 +23,22 @@
 		#stage {
 			border:2px solid #555;
 			border-radius:9px;
+			float:left;
+		}
+		
+		#age-spark {
+			border:2px solid #555;
+			border-radius:2px;			
+			float:left;
+			margin:8px;
+		}
+
+		#scent-map {
+			border:2px solid #555;
+			border-radius:2px;			
+			float:left;
+			margin:8px;
+			height:100px;
 		}
 		
 		td {
@@ -83,6 +99,8 @@
 <body>
 	
 	<canvas id="stage" width="800" height="400"></canvas>
+	<canvas id="scent-map" width="25" height="12"></canvas>
+	<canvas id="age-spark" width="300" height="100"></canvas>
 	
 	<div id="buttons">
 		<div class=button id="realtime"> realtime </div>

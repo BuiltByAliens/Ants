@@ -21,33 +21,19 @@
 	<integer>200</integer>
 	<key>metaData</key>
 	<dict>
-		<key>index.html</key>
-		<dict>
-			<key>caret</key>
-			<dict>
-				<key>column</key>
-				<integer>0</integer>
-				<key>line</key>
-				<integer>41</integer>
-			</dict>
-			<key>firstVisibleColumn</key>
-			<integer>0</integer>
-			<key>firstVisibleLine</key>
-			<integer>28</integer>
-		</dict>
 		<key>script.coffee</key>
 		<dict>
 			<key>caret</key>
 			<dict>
 				<key>column</key>
-				<integer>15</integer>
+				<integer>18</integer>
 				<key>line</key>
-				<integer>347</integer>
+				<integer>483</integer>
 			</dict>
 			<key>firstVisibleColumn</key>
 			<integer>0</integer>
 			<key>firstVisibleLine</key>
-			<integer>331</integer>
+			<integer>467</integer>
 		</dict>
 		<key>script.js</key>
 		<dict>
@@ -61,18 +47,17 @@
 			<key>firstVisibleColumn</key>
 			<integer>0</integer>
 			<key>firstVisibleLine</key>
-			<integer>521</integer>
+			<integer>292</integer>
 		</dict>
 	</dict>
 	<key>openDocuments</key>
 	<array>
-		<string>index.html</string>
 		<string>script.coffee</string>
 		<string>script.js</string>
 	</array>
 	<key>showFileHierarchyDrawer</key>
 	<true/>
 	<key>windowFrame</key>
-	<string>{{752, 141}, {905, 689}}</string>
+	<string>{{770, 167}, {905, 689}}</string>
 </dict>
 </plist>

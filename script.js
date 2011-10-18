@@ -1,5 +1,5 @@
 (function() {
-  var Ant, Food, NeuralNet, Sim, antID, antWedge, clamp, hudPrint, hudString, rand;
+  var Ant, Food, NeuralNet, ScentMap, Sim, antID, antWedge, clamp, hudPrint, hudString, rand;
   var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
   window.requestAnimFrame = (function() {
     return window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || window.oRequestAnimationFrame || window.msRequestAnimationFrame || function(callback, element) {
@@ -253,7 +253,7 @@
     function Ant(owner) {
       this.owner = owner;
       this.getNewID();
-      this.net = new NeuralNet(3, 2, 3, 10);
+      this.net = new NeuralNet(5, 4, 7, 5);
       this.net.mutate(0.1);
       this.radius = 10;
       this.x = 0;
@@ -273,6 +273,9 @@
       this.dead = false;
       this.ndx = rand(0, 1);
       this.ndy = Math.sqrt(1 - this.ndx * this.ndx);
+      if (Math.random() > 0.5) {
+        this.ndy = -this.ndy;
+      }
       this.age = 0;
       this.sinceFood = 0;
       this.collided = 0;
@@ -282,7 +285,7 @@
       return this.id = antID++;
     };
     Ant.prototype.loop = function(ctx, dt, draw) {
-      var angle, ate, circumference, co, col, div, energy, food, inl, inr, legScale, m00, m01, m10, m11, m20, m21, res, si, tRadius, tX, tY, txx, tyy, _ref;
+      var angle, ate, circumference, co, div, energy, food, inl, inr, legScale, m00, m01, m10, m11, m20, m21, res, scent, si, tRadius, tX, tY, txx, tyy;
       if (!this.dead) {
         this.age += dt;
         this.sinceFood += dt;
@@ -295,13 +298,22 @@
           }
           this.health += food;
         }
+        scent = this.owner.getScent(this.x, this.y);
         this.net.inputs[0] = this.health / this.maxHealth;
-        this.net.inputs[1] = clamp(this.sinceFood, 0, 1);
-        this.net.inputs[2] = this.collided;
+        this.net.inputs[1] = clamp(this.sinceFood * 0.2, 0, 1);
+        this.net.inputs[2] = scent[0] / 255.0;
+        this.net.inputs[3] = this.ndx;
+        this.net.inputs[4] = this.ndy;
         this.net.execute();
         legScale = 10;
-        this.leftLeg = clamp(this.net.outputs[0] * legScale, -90, 100);
-        this.rightLeg = clamp(this.net.outputs[1] * legScale, -90, 100);
+        this.leftLeg = clamp(this.net.outputs[0] * legScale, -70, 80);
+        this.rightLeg = clamp(this.net.outputs[1] * legScale, -70, 80);
+        if (this.net.outputs[2] > 0) {
+          this.owner.scentMap.markGreen(this.x, this.y);
+        }
+        if (this.net.outputs[3] > 0) {
+          this.owner.scentMap.markRed(this.x, this.y);
+        }
         energy = 15 + (Math.abs(this.leftLeg) + Math.abs(this.rightLeg)) * 0.1;
         this.health -= dt * energy;
         if (this.health < 0) {
@@ -357,12 +369,6 @@
           tyy = this.ndy;
           this.ndx = txx * m00 + tyy * m10;
           this.ndy = txx * m01 + tyy * m11;
-        }
-        _ref = this.owner.collide(this.x, this.y), this.x = _ref[0], this.y = _ref[1], col = _ref[2];
-        if (col) {
-          this.collided = -1;
-        } else {
-          this.collided = 0;
         }
       }
       if (this.dead) {
@@ -434,26 +440,107 @@
     };
     return Ant;
   })();
+  ScentMap = (function() {
+    function ScentMap(scentMapName, worldW, worldH) {
+      this.scentMapName = scentMapName;
+      this.worldW = worldW;
+      this.worldH = worldH;
+      this.canvas = $(this.scentMapName)[0];
+      this.ctx = $(this.scentMapName)[0].getContext("2d");
+      this.w = $(this.scentMapName).attr('width');
+      this.h = $(this.scentMapName).attr('height');
+      this.map = this.ctx.getImageData(0, 0, this.w, this.h);
+      this.clear();
+      this.decay = 0;
+      this.toMapX = this.w / this.worldW;
+      this.toMapY = this.h / this.worldH;
+    }
+    ScentMap.prototype.clear = function() {
+      var pi, pix, _ref;
+      pix = this.map.data;
+      for (pi = 0, _ref = pix.length; pi < _ref; pi += 4) {
+        pix[pi] = 0;
+        pix[pi + 1] = 0;
+        pix[pi + 2] = 0;
+        pix[pi + 3] = 128;
+      }
+      return this.decay = 0;
+    };
+    ScentMap.prototype.markGreen = function(x, y) {
+      var pi, pix, px, py;
+      px = Math.floor(x * this.toMapX);
+      py = Math.floor(y * this.toMapY);
+      if (px < 0 || px >= this.w || py < 0 || py >= this.h) {
+        return 0;
+      }
+      pix = this.map.data;
+      pi = (py * this.w + px) * 4;
+      return pix[pi + 1] = 255;
+    };
+    ScentMap.prototype.markRed = function(x, y) {
+      var pi, pix, px, py;
+      px = Math.floor(x * this.toMapX);
+      py = Math.floor(y * this.toMapY);
+      if (px < 0 || px >= this.w || py < 0 || py >= this.h) {
+        return 0;
+      }
+      pix = this.map.data;
+      pi = (py * this.w + px) * 4;
+      return pix[pi] = 255;
+    };
+    ScentMap.prototype.readMap = function(x, y) {
+      var pi, pix, px, py;
+      px = Math.floor(x * this.toMapX);
+      py = Math.floor(y * this.toMapY);
+      if (px < 0 || px >= this.w || py < 0 || py >= this.h) {
+        return [0, 0];
+      }
+      pix = this.map.data;
+      pi = (py * this.w + px) * 4;
+      return [pix[pi], pix[pi + 1]];
+    };
+    ScentMap.prototype.loop = function(ctx, dt, draw) {
+      var decay, pi, pix, _ref;
+      pix = this.map.data;
+      this.decay += dt * 7;
+      if (this.decay > 1) {
+        decay = Math.floor(this.decay);
+        this.decay -= decay;
+        for (pi = 0, _ref = pix.length; pi < _ref; pi += 4) {
+          pix[pi] -= decay;
+          pix[pi + 1] -= decay;
+        }
+      }
+      if (draw) {
+        this.ctx.clearRect(0, 0, this.w, this.h);
+        this.ctx.putImageData(this.map, 0, 0);
+        return ctx.drawImage(this.canvas, 0, 0, this.worldW, this.worldH);
+      }
+    };
+    return ScentMap;
+  })();
   Sim = (function() {
-    function Sim(canvasName) {
+    function Sim(canvasName, sparkCanvasName, scentMapName) {
       var foodx, foodxr, foody, foodyr, num;
       this.canvasName = canvasName;
+      this.sparkCanvasName = sparkCanvasName;
       this.ctx = $(canvasName)[0].getContext("2d");
       this.width = $(canvasName).width();
       this.height = $(canvasName).height();
       this.elapsed = 0;
       this.drawSkip = 0;
+      this.scentMap = new ScentMap(scentMapName, this.width, this.height);
       this.generation = 0;
-      if (false) {
-        foodx = this.width / 2;
-        foodxr = this.width / 2;
+      if (true) {
+        foodx = this.width / 3;
+        foodxr = this.width / 4;
         foody = this.height / 2;
-        foodyr = this.height / 2;
+        foodyr = this.height / 3;
       } else {
-        foodx = 400;
-        foodxr = 300;
+        foodx = 200;
+        foodxr = 100;
         foody = 200;
-        foodyr = 30;
+        foodyr = 100;
       }
       this.ants = (function() {
         var _results;
@@ -466,12 +553,14 @@
       this.foods = (function() {
         var _results;
         _results = [];
-        for (num = 1; num <= 20; num++) {
+        for (num = 1; num <= 15; num++) {
           _results.push(new Food(foodx, foodxr, foody, foodyr));
         }
         return _results;
       })();
       this.lastBestTime = 0;
+      this.bestRunningAverage = 0;
+      this.sparkData = [];
       this.startNewGeneration();
     }
     Sim.prototype.collide = function(xx, yy) {
@@ -492,9 +581,8 @@
     };
     Sim.prototype.startNewGeneration = function() {
       var ant, anySwaps, food, i, id, mutation, swapPass, w, _i, _j, _k, _len, _len2, _len3, _ref, _ref2, _ref3, _ref4;
-      this.generation++;
       this.elapsed = 0;
-      id = "<p>Ant: " + this.ants[0].id + " / " + (this.lastBestTime.toFixed(2)) + " seconds</p>";
+      id = "<p>Ant: " + this.ants[0].id + " gen / " + (this.lastBestTime.toFixed(2)) + " secs last time / " + (this.bestRunningAverage.toFixed(2)) + " secs average</p>";
       id += "<p class='dna'><i>" + (((function() {
         var _i, _len, _ref, _results;
         _ref = this.ants[0].net.getDNA();
@@ -526,20 +614,24 @@
         swapPass();
       }
       this.lastBestTime = this.ants[0].age;
-      mutation = 0.3;
-      if (this.ants[0].age > 50) {
+      this.bestRunningAverage += (this.lastBestTime - this.bestRunningAverage) * 0.02;
+      if ((this.generation % 50) === 0) {
+        this.sparkData.push(this.bestRunningAverage);
+      }
+      mutation = 0.15;
+      if (this.bestRunningAverage > 200) {
         mutation /= 10;
       }
-      if (this.ants[0].age > 150) {
+      if (this.bestRunningAverage > 500) {
         mutation /= 100;
       }
-      if (this.ants[0].age > 500) {
-        mutation /= 500;
+      if (this.bestRunningAverage > 1000) {
+        mutation /= 200;
       }
       for (i = 5, _ref2 = this.ants.length; 5 <= _ref2 ? i < _ref2 : i > _ref2; 5 <= _ref2 ? i++ : i--) {
         this.ants[i].net.clone(this.ants[i % 5].net);
         this.ants[i].net.mutate(mutation * 10);
-        this.ants[i].getNewID();
+        this.ants[i].id = this.generation;
       }
       this.ants[this.ants.length - 1].net.mutate(0.15);
       for (i = 0; i < 5; i++) {
@@ -556,49 +648,41 @@
         ant.reset();
         ant.teleport(rand(this.width / 2, 100), rand(this.height / 4, 20));
       }
+      this.scentMap.clear();
+      this.scentTimer = 0;
+      this.drawSpark();
+      this.generation++;
       return null;
     };
-    Sim.prototype.loop = function(dt) {
-      var alive, ant, deadline, food, tick, _i, _j, _k, _l, _len, _len2, _len3, _len4, _ref, _ref2, _ref3, _ref4, _ref5;
-      hudString = "";
-      for (tick = 1, _ref = window.drawSkipCount; 1 <= _ref ? tick < _ref : tick > _ref; 1 <= _ref ? tick++ : tick--) {
-        _ref2 = this.foods;
-        for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-          food = _ref2[_i];
-          food.loop(this.ctx, dt, false);
-        }
-        _ref3 = this.ants;
-        for (_j = 0, _len2 = _ref3.length; _j < _len2; _j++) {
-          ant = _ref3[_j];
-          ant.loop(this.ctx, dt, false);
-        }
-        this.elapsed += dt;
-      }
-      this.ctx.clearRect(0, 0, this.width, this.height);
-      _ref4 = this.foods;
-      for (_k = 0, _len3 = _ref4.length; _k < _len3; _k++) {
-        food = _ref4[_k];
-        food.loop(this.ctx, dt, true);
+    Sim.prototype.subloop = function(dt, draw) {
+      var alive, ant, food, _i, _j, _len, _len2, _ref, _ref2;
+      this.scentMap.loop(this.ctx, dt, draw);
+      _ref = this.foods;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        food = _ref[_i];
+        food.loop(this.ctx, dt, draw);
       }
       alive = 0;
-      _ref5 = this.ants;
-      for (_l = 0, _len4 = _ref5.length; _l < _len4; _l++) {
-        ant = _ref5[_l];
-        alive += ant.loop(this.ctx, dt, true);
+      _ref2 = this.ants;
+      for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
+        ant = _ref2[_j];
+        alive += ant.loop(this.ctx, dt, draw);
       }
       this.elapsed += dt;
-      deadline = 50;
-      if (this.generation > 100) {
-        deadline = 150;
+      this.scentTimer += dt;
+      return alive;
+    };
+    Sim.prototype.loop = function(dt) {
+      var alive, deadline, tick, _ref;
+      hudString = "";
+      for (tick = 1, _ref = window.drawSkipCount; 1 <= _ref ? tick < _ref : tick > _ref; 1 <= _ref ? tick++ : tick--) {
+        this.subloop(dt, false);
       }
-      if (this.generation > 200) {
-        deadline = 300;
-      }
-      if (this.generation > 300) {
-        deadline = 400;
-      }
+      this.ctx.clearRect(0, 0, this.width, this.height);
+      alive = this.subloop(dt, true);
+      deadline = 500;
       if (this.generation > 500) {
-        deadline = 1000;
+        deadline = 5000;
       }
       if (this.elapsed > deadline || alive === 0) {
         this.startNewGeneration();
@@ -610,11 +694,33 @@
       $('#ant-inspect').html(this.ants[0].inspect());
       return true;
     };
+    Sim.prototype.drawSpark = function() {
+      var ctx, h, max, p, stepX, stepY, w, x, _len, _ref;
+      if (this.sparkCanvasName != null) {
+        ctx = $(this.sparkCanvasName)[0].getContext("2d");
+        w = $(this.sparkCanvasName).width();
+        h = $(this.sparkCanvasName).height();
+        ctx.clearRect(0, 0, w, h);
+        max = Math.max.apply(this, this.sparkData);
+        stepX = w / (this.sparkData.length - 1);
+        stepY = h / max;
+        ctx.beginPath();
+        _ref = this.sparkData;
+        for (x = 0, _len = _ref.length; x < _len; x++) {
+          p = _ref[x];
+          ctx.lineTo(x * stepX, h - p * stepY);
+        }
+        return ctx.stroke();
+      }
+    };
+    Sim.prototype.getScent = function(x, y) {
+      return this.scentMap.readMap(x, y);
+    };
     return Sim;
   })();
   $(document).ready(function() {
     var animLoop, net;
-    window.sim = new Sim('#stage');
+    window.sim = new Sim('#stage', '#age-spark', '#scent-map');
     window.simSpeed = 0.01;
     window.drawSkipCount = 100;
     $('#realtime').click(function() {
@@ -626,7 +732,7 @@
       return window.simSpeed = 0.01;
     });
     $('#reallyfast').click(function() {
-      window.drawSkipCount = 100;
+      window.drawSkipCount = 1000;
       return window.simSpeed = 0.01;
     });
     $('#realtime').click();

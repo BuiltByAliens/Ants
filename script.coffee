@@ -157,7 +157,7 @@ antID = 0
 class Ant
   constructor: (@owner) ->
     @getNewID()
-    @net = new NeuralNet( 3, 2, 3, 10 )
+    @net = new NeuralNet( 5, 4, 7, 5 )
     @net.mutate(0.1)
     @radius = 10
     @x = 0
@@ -175,6 +175,7 @@ class Ant
     @dead = false
     @ndx = rand(0,1)
     @ndy = Math.sqrt( 1 - @ndx * @ndx )
+    if Math.random() > 0.5 then @ndy = -@ndy
     @age = 0
     @sinceFood = 0
     @collided = 0
@@ -199,14 +200,23 @@ class Ant
           @sinceFood = 0
         @health += food
 
+      # anything smell good?
+      scent = @owner.getScent( @x, @y )
+
       # do some thinking 
       @net.inputs[0] = @health / @maxHealth
-      @net.inputs[1] = clamp( @sinceFood, 0, 1 )
-      @net.inputs[2] = @collided
+      @net.inputs[1] = clamp( @sinceFood * 0.2, 0, 1 )
+      @net.inputs[2] = scent[0] / 255.0
+      @net.inputs[3] = @ndx
+      @net.inputs[4] = @ndy
       @net.execute()
       legScale = 10
-      @leftLeg = clamp( @net.outputs[0] * legScale, -90, 100 )
-      @rightLeg = clamp( @net.outputs[1] * legScale, -90, 100 )
+      @leftLeg = clamp( @net.outputs[0] * legScale, -70, 80 )
+      @rightLeg = clamp( @net.outputs[1] * legScale, -70, 80 )
+      if ( @net.outputs[2] > 0 )
+        @owner.scentMap.markGreen( @x, @y )
+      if ( @net.outputs[3] > 0 )
+        @owner.scentMap.markRed( @x, @y )
 
       
       # spend energy to live and move
@@ -283,8 +293,8 @@ class Ant
         @ndy = txx * m01 + tyy * m11
        
       #collide with walls
-      [@x, @y, col] = @owner.collide( @x, @y )
-      if col then @collided = -1 else @collided = 0
+      #[@x, @y, col] = @owner.collide( @x, @y )
+      #if col then @collided = -1 else @collided = 0
     
     if @dead then res = 0 else res = 1  
     
@@ -329,30 +339,100 @@ class Ant
     return ins
 
 
-class Sim
-  constructor: (@canvasName) ->
+
+
+class ScentMap 
+  constructor: (@scentMapName, @worldW, @worldH) ->
+    @canvas = $(@scentMapName)[0];
+    @ctx = $(@scentMapName)[0].getContext("2d")
+    @w = $(@scentMapName).attr('width')
+    @h = $(@scentMapName).attr('height')
+    @map = @ctx.getImageData( 0, 0, @w, @h )
+    @clear()
+    @decay = 0
+    @toMapX = @w / @worldW
+    @toMapY = @h / @worldH
+    
+  clear: ->
+    pix = @map.data
+    for pi in [0...pix.length] by 4
+      pix[pi] = 0
+      pix[pi+1] = 0
+      pix[pi+2] = 0
+      pix[pi+3] = 128
+    @decay = 0
+    
+  markGreen: ( x, y ) ->
+    px = Math.floor( x * @toMapX )
+    py = Math.floor( y * @toMapY )
+    if px < 0 or px >= @w or py < 0 or py >= @h 
+      return 0
+    pix = @map.data
+    pi = ( ( py * @w + px ) * 4 )
+    pix[pi+1] = 255
+    
+  markRed: ( x, y) ->
+    px = Math.floor( x * @toMapX )
+    py = Math.floor( y * @toMapY )
+    if px < 0 or px >= @w or py < 0 or py >= @h 
+      return 0
+    pix = @map.data
+    pi = ( ( py * @w + px ) * 4 )
+    pix[pi] = 255
+    
+  readMap: ( x, y ) ->    
+    px = Math.floor( x * @toMapX )
+    py = Math.floor( y * @toMapY )
+    if px < 0 or px >= @w or py < 0 or py >= @h
+      return [0,0]
+    pix = @map.data
+    pi = ( py * @w + px ) * 4
+    return [ pix[pi], pix[pi+1] ]
+    
+    
+  loop: (ctx, dt, draw) ->
+    pix = @map.data
+    @decay += dt * 7
+    if @decay > 1 
+      decay = Math.floor( @decay )
+      @decay -= decay
+      for pi in [0...pix.length] by 4
+        pix[pi] -= decay
+        pix[pi+1] -= decay
+    
+    if draw
+      @ctx.clearRect( 0, 0, @w, @h )
+      @ctx.putImageData( @map, 0, 0 )
+      ctx.drawImage( @canvas, 0, 0, @worldW, @worldH )
+    
+
+class Sim 
+  constructor: (@canvasName, @sparkCanvasName, scentMapName) ->
     @ctx = $(canvasName)[0].getContext("2d")
     @width = $(canvasName).width()
     @height = $(canvasName).height()
     @elapsed = 0
     @drawSkip = 0
+    @scentMap = new ScentMap( scentMapName, @width, @height )
     
     @generation = 0
     
-    if false
-      foodx = @width/2
-      foodxr = @width/2
+    if true
+      foodx = @width/3
+      foodxr = @width/4
       foody = @height/2
-      foodyr = @height/2
+      foodyr = @height/3
     else
-      foodx = 400
-      foodxr = 300
+      foodx = 200
+      foodxr = 100
       foody = 200 
-      foodyr = 30
+      foodyr = 100
     
     @ants = ( new Ant(@) for num in [1..10] )
-    @foods = ( new Food( foodx, foodxr, foody, foodyr  ) for num in [1..20] )
+    @foods = ( new Food( foodx, foodxr, foody, foodyr  ) for num in [1..15] )
     @lastBestTime = 0
+    @bestRunningAverage = 0
+    @sparkData = []
     
     @startNewGeneration()
     
@@ -367,10 +447,9 @@ class Sim
     return yum
     
   startNewGeneration: ->
-    @generation++
     @elapsed = 0
     
-    id = "<p>Ant: #{@ants[0].id} / #{@lastBestTime.toFixed(2)} seconds</p>"
+    id = "<p>Ant: #{@ants[0].id} gen / #{@lastBestTime.toFixed(2)} secs last time / #{@bestRunningAverage.toFixed(2)} secs average</p>"
     id += "<p class='dna'><i>#{ ( w.toFixed(2) for w in @ants[0].net.getDNA() ).join('</i><i>') } </i></p>"
     $('#ant-id').html( id )    
     
@@ -391,23 +470,27 @@ class Sim
       swapPass()
 
     @lastBestTime = @ants[0].age
+    @bestRunningAverage += ( @lastBestTime - @bestRunningAverage ) * 0.02
+    if ( @generation % 50 ) == 0
+      @sparkData.push(@bestRunningAverage)
+    
     
     # mutate the ants, slowing down mutation as we start to get success
-    mutation = 0.3
-    if ( @ants[0].age > 50 )
+    mutation = 0.15
+    if ( @bestRunningAverage > 200 )
       mutation /= 10
 
-    if ( @ants[0].age > 150 )
+    if ( @bestRunningAverage > 500 )
       mutation /= 100
 
-    if ( @ants[0].age > 500 )
-      mutation /= 500
+    if ( @bestRunningAverage > 1000 )
+      mutation /= 200
 
     # most of the ants are "children" of the first 5, mutated a little more harshly
     for i in [5...@ants.length]
       @ants[i].net.clone( @ants[i%5].net )
       @ants[i].net.mutate( mutation * 10 )
-      @ants[i].getNewID()
+      @ants[i].id = @generation
     
     # the last ant is a runt, and gets mutated severely... just in case we get lucky  
     @ants[@ants.length-1].net.mutate(0.15)
@@ -425,34 +508,39 @@ class Sim
       ant.reset()
       ant.teleport( rand(@width/2, 100), rand(@height/4, 20) )
     
+    @scentMap.clear()
+    @scentTimer = 0
+    
+    @drawSpark()
+    @generation++
+    
     return null
+    
+  subloop: (dt, draw)->
+    @scentMap.loop(@ctx,dt,draw)
+    food.loop(@ctx,dt,draw) for food in @foods    
+    alive = 0
+    ( alive += ant.loop(@ctx,dt,draw) ) for ant in @ants
+    #if @scentTimer > 2
+    #  @scentMap.markGreen( ant.x, ant.y ) for ant in @ants
+    #  @scentTimer -= Math.floor( @scentTimer )
+    @elapsed += dt
+    @scentTimer += dt
+    return alive
     
     
   loop: (dt)->
     hudString = ""
 
     for tick in [1...window.drawSkipCount]
-      food.loop(@ctx,dt,false) for food in @foods    
-      ant.loop(@ctx,dt,false) for ant in @ants
-      @elapsed += dt
-
+      @subloop( dt, false )
+    
     @ctx.clearRect( 0, 0, @width, @height )
-    food.loop(@ctx,dt,true) for food in @foods    
+    alive = @subloop( dt, true )
     
-    alive = 0
-    ( alive += ant.loop(@ctx,dt,true) ) for ant in @ants
-        
-    @elapsed += dt
-    
-    deadline = 50
-    if @generation > 100
-      deadline = 150
-    if @generation > 200
-      deadline = 300
-    if @generation > 300
-      deadline = 400
+    deadline = 500
     if @generation > 500
-      deadline = 1000
+      deadline = 5000
     
     if @elapsed > deadline or alive == 0 
       @startNewGeneration()
@@ -467,10 +555,26 @@ class Sim
     
     return true # @generation < 1000
 
+  drawSpark: ->
+    if @sparkCanvasName?
+      ctx = $(@sparkCanvasName)[0].getContext("2d")
+      w = $(@sparkCanvasName).width()
+      h = $(@sparkCanvasName).height()
+      ctx.clearRect( 0, 0, w, h )
+      max = Math.max.apply( this, @sparkData )
+      stepX = w / ( @sparkData.length - 1 )
+      stepY = h / max
+      ctx.beginPath()
+      ctx.lineTo( x * stepX, h - p * stepY ) for p, x in @sparkData
+      ctx.stroke()
+      
+  getScent: ( x, y ) ->
+    return @scentMap.readMap( x, y )
+    
 
 
 $(document).ready ->
-  window.sim = new Sim( '#stage' )
+  window.sim = new Sim( '#stage', '#age-spark', '#scent-map' )
   window.simSpeed = 0.01
   window.drawSkipCount = 100
   
@@ -481,7 +585,7 @@ $(document).ready ->
     window.drawSkipCount = 0
     window.simSpeed = 0.01 
   $('#reallyfast').click -> 
-    window.drawSkipCount = 100
+    window.drawSkipCount = 1000
     window.simSpeed = 0.01
   
   $('#realtime').click()
