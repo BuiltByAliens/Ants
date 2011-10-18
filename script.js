@@ -538,9 +538,15 @@
         foodyr = this.height / 3;
       } else {
         foodx = 200;
+<<<<<<< HEAD
         foodxr = 100;
         foody = 200;
         foodyr = 100;
+=======
+        foodxr = 200;
+        foody = 200;
+        foodyr = 200;
+>>>>>>> 7c270e64711d9e5d6c260573c9aba32da3450a82
       }
       this.ants = (function() {
         var _results;
