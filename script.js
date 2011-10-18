@@ -253,7 +253,7 @@
     function Ant(owner) {
       this.owner = owner;
       this.getNewID();
-      this.net = new NeuralNet(5, 4, 7, 5);
+      this.net = new NeuralNet(4, 4, 8, 4);
       this.net.mutate(0.1);
       this.radius = 10;
       this.x = 0;
@@ -302,8 +302,7 @@
         this.net.inputs[0] = this.health / this.maxHealth;
         this.net.inputs[1] = clamp(this.sinceFood * 0.2, 0, 1);
         this.net.inputs[2] = scent[0] / 255.0;
-        this.net.inputs[3] = this.ndx;
-        this.net.inputs[4] = this.ndy;
+        this.net.inputs[3] = scent[1] / 255.0;
         this.net.execute();
         legScale = 10;
         this.leftLeg = clamp(this.net.outputs[0] * legScale, -70, 80);
@@ -538,15 +537,9 @@
         foodyr = this.height / 3;
       } else {
         foodx = 200;
-<<<<<<< HEAD
         foodxr = 100;
         foody = 200;
         foodyr = 100;
-=======
-        foodxr = 200;
-        foody = 200;
-        foodyr = 200;
->>>>>>> 7c270e64711d9e5d6c260573c9aba32da3450a82
       }
       this.ants = (function() {
         var _results;

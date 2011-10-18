@@ -157,7 +157,7 @@ antID = 0
 class Ant
   constructor: (@owner) ->
     @getNewID()
-    @net = new NeuralNet( 5, 4, 7, 5 )
+    @net = new NeuralNet( 4, 4, 8, 4 )
     @net.mutate(0.1)
     @radius = 10
     @x = 0
@@ -207,8 +207,7 @@ class Ant
       @net.inputs[0] = @health / @maxHealth
       @net.inputs[1] = clamp( @sinceFood * 0.2, 0, 1 )
       @net.inputs[2] = scent[0] / 255.0
-      @net.inputs[3] = @ndx
-      @net.inputs[4] = @ndy
+      @net.inputs[3] = scent[1] / 255.0
       @net.execute()
       legScale = 10
       @leftLeg = clamp( @net.outputs[0] * legScale, -70, 80 )
@@ -482,7 +481,7 @@ class Sim
 
     if ( @bestRunningAverage > 500 )
       mutation /= 100
-
+ 
     if ( @bestRunningAverage > 1000 )
       mutation /= 200
 
